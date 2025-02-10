@@ -927,15 +927,19 @@ def generate_image(model: PixelTransformer,
     # Clear any existing cache
     model.clear_kv_cache()
     
+    # For tracking progress
+    last_percentage = -1
+    
     with torch.no_grad():
-        # Create progress bar for pixel generation
-        pbar = tqdm(range(total_seq_len), 
-                   desc='Generating pixels',
-                   leave=False,
-                   disable=not accelerator.is_local_main_process)
-        
         # Generate pixels one by one
-        for i in pbar:
+        for i in range(total_seq_len):
+            # Print progress every 20%
+            current_percentage = (i * 100) // total_seq_len
+            if current_percentage % 20 == 0 and current_percentage != last_percentage:
+                if accelerator.is_local_main_process:
+                    print(f"Image generation: {current_percentage}% complete")
+                last_percentage = current_percentage
+            
             # Trim sequence if it exceeds max length
             if current_sequence.size(1) > max_seq_length:
                 # Keep only the last max_seq_length tokens
@@ -975,12 +979,10 @@ def generate_image(model: PixelTransformer,
             
             # Append to our sequence
             current_sequence = torch.cat([current_sequence, next_pixel], dim=1)
-            
-            # Update progress bar with current pixel position
-            pbar.set_postfix({
-                'pixel': f'{i+1}/{total_seq_len}',
-                'seq_len': current_sequence.size(1)
-            })
+    
+    # Print 100% completion
+    if accelerator.is_local_main_process:
+        print("Image generation: 100% complete")
     
     # Clear cache after generation
     model.clear_kv_cache()
