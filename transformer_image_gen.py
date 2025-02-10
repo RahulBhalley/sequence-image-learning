@@ -1023,14 +1023,12 @@ def save_generated_images(model: PixelTransformer,
     # Create save directory
     os.makedirs(os.path.join(save_dir, 'generated_images'), exist_ok=True)
     
-    # Generate multiple images with progress bar
+    # Generate multiple images
     images = []
-    pbar = tqdm(range(num_images), 
-                desc='Generating images',
-                disable=not accelerator.is_local_main_process)
-    
-    for i in pbar:
-        pbar.set_postfix({'image': f'{i+1}/{num_images}'})
+    for i in range(num_images):
+        # if accelerator.is_local_main_process:
+        #     print(f"\nGenerating image {i+1}/{num_images} ({(i * 100) // num_images}% complete)")
+        
         image = generate_image(
             model, 
             image_size, 
@@ -1038,7 +1036,11 @@ def save_generated_images(model: PixelTransformer,
             max_seq_length=max_seq_length,
             device=accelerator.device
         )
+        print(f"Image {i+1} generated")
         images.append(image)
+    
+    if accelerator.is_local_main_process:
+        print(f"\nImage generation complete (100%)")
     
     # Combine into a grid
     image_grid = torchvision.utils.make_grid(images, nrow=2, normalize=True)
